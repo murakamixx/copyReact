@@ -6,7 +6,6 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { NavLink, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
-import { auth } from "../../api/firebase/config";
 import { Button } from "../../components/common/Button";
 
 const SIGNINFORM_SCHEMA = yup.object({

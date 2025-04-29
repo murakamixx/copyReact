@@ -4,7 +4,7 @@ import {
   signInWithEmailAndPassword,
   signOut as signOutFirebaseAuth,
   sendPasswordResetEmail,
-  User,
+  User
 } from "firebase/auth";
 import {
   createContext,
@@ -27,19 +27,19 @@ const FirebaseAuthContext = createContext<{
   signUp: (
     email: string,
     password: string
-  ) => Promise<AuthResponseStatus> | null;
+  ) => Promise<AuthResponseStatus>;
   signIn: (
     email: string,
     password: string
-  ) => Promise<AuthResponseStatus> | null;
-  signOut: () => Promise<AuthResponseStatus> | null;
-  resetPassword: (email: string) => Promise<AuthResponseStatus> | null;
+  ) => Promise<AuthResponseStatus>;
+  signOut: () => Promise<AuthResponseStatus>;
+  resetPassword: (email: string) => Promise<AuthResponseStatus>;
 }>({
   authData: null,
-  signUp: () => null,
-  signIn: () => null,
-  signOut: () => null,
-  resetPassword: () => null,
+  signUp: () => Promise.resolve({ isSuccess: false, errorMessage: "Not implemented" }),
+  signIn: () => Promise.resolve({ isSuccess: false, errorMessage: "Not implemented" }),
+  signOut: () => Promise.resolve({ isSuccess: false, errorMessage: "Not implemented" }),
+  resetPassword: () => Promise.resolve({ isSuccess: false, errorMessage: "Not implemented" }),
   isAuthenticating: false,
 });
 
@@ -47,8 +47,16 @@ export const useFirebaseAuth = () => useContext(FirebaseAuthContext);
 
 export const FirebaseAuthProvider = ({ children }: PropsWithChildren) => {
   const [authData, setAuthData] = useState<User | null>(null);
-
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  const handleAuthError = (err: unknown): AuthResponseStatus => {
+    if (typeof err === 'string') {
+      return { errorMessage: err, isSuccess: false };
+    } else if (err instanceof Error) {
+      return { errorMessage: err.message, isSuccess: false };
+    }
+    return { errorMessage: "Unknown error occurred", isSuccess: false };
+  };
 
   const signUp = async (
     email: string,
@@ -63,8 +71,8 @@ export const FirebaseAuthProvider = ({ children }: PropsWithChildren) => {
       );
       return { user: userCredentials.user, isSuccess: true };
     } catch (err) {
-      console.log(err);
-      return { errorMessage: err.message, isSuccess: false };
+      console.error("Sign up error:", err);
+      return handleAuthError(err);
     } finally {
       setIsAuthenticating(false);
     }
@@ -83,8 +91,8 @@ export const FirebaseAuthProvider = ({ children }: PropsWithChildren) => {
       );
       return { user: userCredentials.user, isSuccess: true };
     } catch (err) {
-      console.log(err);
-      return { errorMessage: err.message, isSuccess: false };
+      console.error("Sign in error:", err);
+      return handleAuthError(err);
     } finally {
       setIsAuthenticating(false);
     }
@@ -96,8 +104,8 @@ export const FirebaseAuthProvider = ({ children }: PropsWithChildren) => {
       await signOutFirebaseAuth(auth);
       return { isSuccess: true };
     } catch (err) {
-      console.log(err);
-      return { errorMessage: err.message, isSuccess: false };
+      console.error("Sign out error:", err);
+      return handleAuthError(err);
     } finally {
       setIsAuthenticating(false);
     }
@@ -108,14 +116,13 @@ export const FirebaseAuthProvider = ({ children }: PropsWithChildren) => {
       await sendPasswordResetEmail(auth, email);
       return { isSuccess: true };
     } catch (err) {
-      console.log(err);
-      return { errorMessage: err.message, isSuccess: false };
+      console.error("Password reset error:", err);
+      return handleAuthError(err);
     }
   };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log(currentUser);
       setAuthData(currentUser);
     });
 
@@ -125,12 +132,12 @@ export const FirebaseAuthProvider = ({ children }: PropsWithChildren) => {
   return (
     <FirebaseAuthContext.Provider
       value={{
-        authData: authData,
+        authData,
         signIn,
         signOut,
         signUp,
         resetPassword,
-        isAuthenticating: isAuthenticating,
+        isAuthenticating,
       }}
     >
       {children}

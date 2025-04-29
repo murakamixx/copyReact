@@ -4,7 +4,6 @@ import { Footer } from "../../components/layouts/Footer";
 import { Navbar } from "../../components/common/Navbar";
 import { useFirebaseAuth } from "../../providers/FirebaseAuthProvider";
 import { useFirebaseFirestore } from "../../providers/FirebaseFirestoreProvider";
-import { Timestamp } from "firebase/firestore";
 import { RoomTypes } from "../../api/firebase/types";
 
 const ImgRooms: Record<RoomTypes, { title: string, img: string }> = {

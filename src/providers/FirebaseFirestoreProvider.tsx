@@ -24,15 +24,13 @@ type FirebaseFirestoreResponse = {
 const FirebaseFirestoreContext = createContext<{
   userData: UserDto | undefined;
   isLoading: boolean;
-  getUserData: () => Promise<FirebaseFirestoreResponse> | null;
-  createBooking: (
-    booking: BookingDto
-  ) => Promise<FirebaseFirestoreResponse> | null;
+  getUserData: () => Promise<FirebaseFirestoreResponse>;
+  createBooking: (booking: BookingDto) => Promise<FirebaseFirestoreResponse>;
 }>({
   userData: undefined,
   isLoading: false,
-  getUserData: () => null,
-  createBooking: () => null,
+  getUserData: () => Promise.resolve({ isSuccess: false, errorMessage: "Not implemented" }),
+  createBooking: () => Promise.resolve({ isSuccess: false, errorMessage: "Not implemented" }),
 });
 
 const db = getFirestore(firebaseApp);
@@ -41,10 +39,17 @@ export const useFirebaseFirestore = () => useContext(FirebaseFirestoreContext);
 
 export const FirebaseFirestoreProvider = ({ children }: PropsWithChildren) => {
   const [userData, setUserData] = useState<UserDto | undefined>();
-
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
   const { authData } = useFirebaseAuth();
+
+  const handleFirestoreError = (err: unknown): FirebaseFirestoreResponse => {
+    if (typeof err === 'string') {
+      return { isSuccess: false, errorMessage: err };
+    } else if (err instanceof Error) {
+      return { isSuccess: false, errorMessage: err.message };
+    }
+    return { isSuccess: false, errorMessage: "Unknown error occurred" };
+  };
 
   useEffect(() => {
     if (authData) {
@@ -63,17 +68,13 @@ export const FirebaseFirestoreProvider = ({ children }: PropsWithChildren) => {
           return { isSuccess: true };
         } else {
           await createUser();
-          return { isSuccess: false, errorMessage: "userIsNotRegistered" };
+          return { isSuccess: false, errorMessage: "User is not registered" };
         }
-      } else {
-        return {
-          isSuccess: false,
-          errorMessage: "Not authenticated",
-        };
       }
+      return { isSuccess: false, errorMessage: "Not authenticated" };
     } catch (err) {
-      console.log(err);
-      return { isSuccess: false, errorMessage: err };
+      console.error("Get user data error:", err);
+      return handleFirestoreError(err);
     } finally {
       setIsLoading(false);
     }
@@ -85,18 +86,12 @@ export const FirebaseFirestoreProvider = ({ children }: PropsWithChildren) => {
       if (authData?.uid) {
         const user: UserDto = { bookings: [] };
         await setDoc(doc(db, "users", authData.uid), user);
-        return {
-          isSuccess: true,
-        };
-      } else {
-        return {
-          isSuccess: false,
-          errorMessage: "Not authenticated",
-        };
+        return { isSuccess: true };
       }
+      return { isSuccess: false, errorMessage: "Not authenticated" };
     } catch (err) {
-      console.log(err);
-      return { isSuccess: false, errorMessage: err };
+      console.error("Create user error:", err);
+      return handleFirestoreError(err);
     } finally {
       setIsLoading(false);
     }
@@ -109,22 +104,19 @@ export const FirebaseFirestoreProvider = ({ children }: PropsWithChildren) => {
       setIsLoading(true);
       if (authData?.uid && userData) {
         const docRef = doc(db, "users", authData.uid);
-        console.log(booking);
-        await updateDoc(docRef, { bookings: [...userData.bookings, booking] });
-        userData.bookings = [...userData.bookings, booking];
-        setUserData(userData);
-        return {
-          isSuccess: true,
-        };
-      } else {
-        return {
-          isSuccess: false,
-          errorMessage: "Not authenticated",
-        };
+        await updateDoc(docRef, { 
+          bookings: [...userData.bookings, booking] 
+        });
+        setUserData({
+          ...userData,
+          bookings: [...userData.bookings, booking]
+        });
+        return { isSuccess: true };
       }
+      return { isSuccess: false, errorMessage: "Not authenticated" };
     } catch (err) {
-      console.log(err);
-      return { isSuccess: false, errorMessage: err };
+      console.error("Create booking error:", err);
+      return handleFirestoreError(err);
     } finally {
       setIsLoading(false);
     }
@@ -133,7 +125,7 @@ export const FirebaseFirestoreProvider = ({ children }: PropsWithChildren) => {
   return (
     <FirebaseFirestoreContext.Provider
       value={{
-        userData: userData,
+        userData,
         isLoading,
         createBooking,
         getUserData,
